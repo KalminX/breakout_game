@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8" />
-    <title>Gamedev Canvas Workshop</title>
+    <title>Breakout</title>
     <style>
         * {
             padding: 0;
@@ -17,7 +17,30 @@
             width: 100%;
             max-width: 480px;
             height: auto;
-            /* touch-action: none; */
+        }
+
+        dialog {
+            text-align: center;
+            border: none;
+            border-radius: 10px;
+            padding: 2em;
+            background: white;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+        }
+
+        dialog::backdrop {
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        #restartButton {
+            margin-top: 1em;
+            padding: 0.5em 1.2em;
+            font-size: 1rem;
+            background-color: #0095DD;
+            border: none;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -25,15 +48,24 @@
 <body>
     <canvas id="myCanvas" width="480" height="320"></canvas>
 
+    <!-- GAME OVER DIALOG -->
+    <dialog id="gameOverDialog">
+        <h2>🎮 Game Over</h2>
+        <p>Thanks for playing!</p>
+        <button id="restartButton">Restart</button>
+    </dialog>
+
     <script>
-        // === Canvas Setup ===
         const canvas = document.getElementById("myCanvas");
         const ctx = canvas.getContext("2d");
+        const gameOverDialog = document.getElementById("gameOverDialog");
+        const restartButton = document.getElementById("restartButton");
 
-        let interval = 0;
+        restartButton.addEventListener("click", () => {
+            document.location.reload();
+        });
+
         let score = 0;
-
-        // === Ball Properties ===
         const ballRadius = 10;
         let ballColor = "#0095DD";
         let x = canvas.width / 2;
@@ -42,8 +74,6 @@
         let dy = -2;
         let lives = 3;
 
-
-        // === Brick Properties ===
         const brickRowCount = 2;
         const brickColumnCount = 2;
         const brickWidth = 75;
@@ -51,7 +81,7 @@
         const brickPadding = 10;
         const brickOffsetTop = 30;
         const brickOffsetLeft = 30;
-        let brickColor = "#0095DD"
+        let brickColor = "#0095DD";
         let bricks = [];
 
         for (let c = 0; c < brickColumnCount; c++) {
@@ -61,59 +91,42 @@
             }
         }
 
-
-        // === Paddle Properties ===
         const paddleHeight = 10;
         const paddleWidth = 75;
         let paddleX = (canvas.width - paddleWidth) / 2;
 
-        // === Keyboard Controls State ===
         let rightPressed = false;
         let leftPressed = false;
 
-        // === Event Listeners ===
         document.addEventListener("keydown", keyDownHandler, false);
         document.addEventListener("keyup", keyUpHandler, false);
         document.addEventListener("mousemove", mouseMoveHandler, false);
         document.addEventListener("touchmove", touchMoveHandler, { passive: false });
 
-        function touchMoveHandler(e) {
-            e.preventDefault(); // prevent page scrolling
-            const touch = e.touches[0];
-            const relativeX = touch.clientX - canvas.offsetLeft;
-            if (relativeX > 0 && relativeX < canvas.width) {
-                paddleX = relativeX - paddleWidth / 2;
-            }
-        }
-
-
-
-
         function keyDownHandler(e) {
-            if (e.key === "Right" || e.key === "ArrowRight") {
-                rightPressed = true;
-            } else if (e.key === "Left" || e.key === "ArrowLeft") {
-                leftPressed = true;
-            }
+            if (e.key === "Right" || e.key === "ArrowRight") rightPressed = true;
+            else if (e.key === "Left" || e.key === "ArrowLeft") leftPressed = true;
         }
 
         function keyUpHandler(e) {
-            if (e.key === "Right" || e.key === "ArrowRight") {
-                rightPressed = false;
-            } else if (e.key === "Left" || e.key === "ArrowLeft") {
-                leftPressed = false;
-            }
+            if (e.key === "Right" || e.key === "ArrowRight") rightPressed = false;
+            else if (e.key === "Left" || e.key === "ArrowLeft") leftPressed = false;
         }
 
         function mouseMoveHandler(e) {
             const relativeX = e.clientX - canvas.offsetLeft;
-            if (relativeX > 0 && relativeX < canvas.width) {
+            if (relativeX > 0 && relativeX < canvas.width)
                 paddleX = relativeX - paddleWidth / 2;
-            }
         }
 
+        function touchMoveHandler(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const relativeX = touch.clientX - canvas.offsetLeft;
+            if (relativeX > 0 && relativeX < canvas.width)
+                paddleX = relativeX - paddleWidth / 2;
+        }
 
-        // === Drawing Functions ===
         function drawBall() {
             ctx.beginPath();
             ctx.arc(x, y, ballRadius, 0, Math.PI * 2);
@@ -129,13 +142,6 @@
             ctx.fill();
             ctx.closePath();
         }
-
-        function drawLives() {
-            ctx.font = "16px Arial";
-            ctx.fillStyle = "#0095DD";
-            ctx.fillText(`Lives: ${lives}`, canvas.width - 65, 20);
-        }
-
 
         function drawBricks() {
             for (let c = 0; c < brickColumnCount; c++) {
@@ -155,7 +161,18 @@
             }
         }
 
-        // === Utility ===
+        function drawScore() {
+            ctx.font = "16px Arial";
+            ctx.fillStyle = "#0095DD";
+            ctx.fillText(`Score: ${score}`, 8, 20);
+        }
+
+        function drawLives() {
+            ctx.font = "16px Arial";
+            ctx.fillStyle = "#0095DD";
+            ctx.fillText(`Lives: ${lives}`, canvas.width - 65, 20);
+        }
+
         function getRandomHexColor() {
             const hex = Math.floor(Math.random() * 0xffffff).toString(16);
             return `#${hex.padStart(6, '0')}`;
@@ -166,21 +183,15 @@
                 for (let r = 0; r < brickRowCount; r++) {
                     const b = bricks[c][r];
                     if (b.status === 1) {
-                        if (
-                            x > b.x &&
-                            x < b.x + brickWidth &&
-                            y > b.y &&
-                            y < b.y + brickHeight
-                        ) {
+                        if (x > b.x && x < b.x + brickWidth && y > b.y && y < b.y + brickHeight) {
                             dy = -dy;
-                            brickColor = getRandomHexColor()
+                            brickColor = getRandomHexColor();
                             b.status = 0;
                             score++;
                             if (score === brickRowCount * brickColumnCount) {
                                 lives--;
                                 if (!lives) {
-                                    alert("GAME OVER");
-                                    document.location.reload();
+                                    gameOverDialog.showModal();
                                 } else {
                                     x = canvas.width / 2;
                                     y = canvas.height - 30;
@@ -188,7 +199,6 @@
                                     dy = -2;
                                     paddleX = (canvas.width - paddleWidth) / 2;
                                 }
-
                             }
                         }
                     }
@@ -196,15 +206,6 @@
             }
         }
 
-        function drawScore() {
-            ctx.font = "16px Arial";
-            ctx.fillStyle = "#0095DD";
-            ctx.fillText(`Score: ${score}`, 8, 20);
-        }
-
-
-
-        // === Main Draw Loop ===
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawBricks();
@@ -214,8 +215,6 @@
             drawLives();
             collisionDetection();
 
-
-            // Bounce on walls
             if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
                 dx = -dx;
                 ballColor = getRandomHexColor();
@@ -227,13 +226,11 @@
                 if (x > paddleX && x < paddleX + paddleWidth) {
                     dy = -dy;
                 } else {
-                    alert("GAME OVER");
-                    document.location.reload();
+                    gameOverDialog.showModal();
+                    return; // Stop drawing loop
                 }
             }
 
-
-            // Paddle movement
             if (rightPressed) {
                 paddleX = Math.min(paddleX + 7, canvas.width - paddleWidth);
             } else if (leftPressed) {
@@ -245,10 +242,8 @@
             requestAnimationFrame(draw);
         }
 
-        // === Start Game Loop ===
         draw();
     </script>
-
 </body>
 
 </html>
