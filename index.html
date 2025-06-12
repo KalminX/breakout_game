@@ -21,6 +21,7 @@
 
         dialog {
             text-align: center;
+            margin: auto auto;
             border: none;
             border-radius: 10px;
             padding: 2em;
@@ -48,7 +49,6 @@
 <body>
     <canvas id="myCanvas" width="480" height="320"></canvas>
 
-    <!-- GAME OVER DIALOG -->
     <dialog id="gameOverDialog">
         <h2>🎮 Game Over</h2>
         <p>Thanks for playing!</p>
@@ -61,10 +61,6 @@
         const gameOverDialog = document.getElementById("gameOverDialog");
         const restartButton = document.getElementById("restartButton");
 
-        restartButton.addEventListener("click", () => {
-            document.location.reload();
-        });
-
         let score = 0;
         const ballRadius = 10;
         let ballColor = "#0095DD";
@@ -74,8 +70,8 @@
         let dy = -2;
         let lives = 3;
 
-        const brickRowCount = 2;
-        const brickColumnCount = 2;
+        const brickRowCount = 5;
+        const brickColumnCount = 5;
         const brickWidth = 75;
         const brickHeight = 20;
         const brickPadding = 10;
@@ -84,10 +80,13 @@
         let brickColor = "#0095DD";
         let bricks = [];
 
-        for (let c = 0; c < brickColumnCount; c++) {
-            bricks[c] = [];
-            for (let r = 0; r < brickRowCount; r++) {
-                bricks[c][r] = { x: 0, y: 0, status: 1 };
+        function initBricks() {
+            bricks = [];
+            for (let c = 0; c < brickColumnCount; c++) {
+                bricks[c] = [];
+                for (let r = 0; r < brickRowCount; r++) {
+                    bricks[c][r] = { x: 0, y: 0, status: 1 };
+                }
             }
         }
 
@@ -178,6 +177,10 @@
             return `#${hex.padStart(6, '0')}`;
         }
 
+        function allBricksCleared() {
+            return bricks.flat().every(b => b.status === 0);
+        }
+
         function collisionDetection() {
             for (let c = 0; c < brickColumnCount; c++) {
                 for (let r = 0; r < brickRowCount; r++) {
@@ -188,23 +191,49 @@
                             brickColor = getRandomHexColor();
                             b.status = 0;
                             score++;
-                            if (score === brickRowCount * brickColumnCount) {
-                                lives--;
-                                if (!lives) {
-                                    gameOverDialog.showModal();
-                                } else {
-                                    x = canvas.width / 2;
-                                    y = canvas.height - 30;
-                                    dx = 2;
-                                    dy = -2;
-                                    paddleX = (canvas.width - paddleWidth) / 2;
-                                }
-                            }
                         }
                     }
                 }
             }
         }
+
+        function saveGameState() {
+            localStorage.setItem('breakoutGameState', JSON.stringify({
+                score,
+                lives,
+                bricks
+            }));
+        }
+
+        function loadGameState() {
+            const saved = JSON.parse(localStorage.getItem('breakoutGameState'));
+            if (saved && saved.lives > 0) {
+                score = saved.score;
+                lives = saved.lives;
+                bricks = saved.bricks;
+            } else {
+                score = 0;
+                lives = 3;
+                initBricks();
+            }
+        }
+
+        function resetBallAndPaddle() {
+            x = canvas.width / 2;
+            y = canvas.height - 30;
+            dx = 2;
+            dy = -2;
+            paddleX = (canvas.width - paddleWidth) / 2;
+        }
+
+        restartButton.addEventListener("click", () => {
+            score = 0;
+            lives = 3;
+            initBricks();
+            resetBallAndPaddle();
+            gameOverDialog.close();
+            requestAnimationFrame(draw);
+        });
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -215,6 +244,10 @@
             drawLives();
             collisionDetection();
 
+            if (allBricksCleared()) {
+                initBricks();
+            }
+
             if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
                 dx = -dx;
                 ballColor = getRandomHexColor();
@@ -222,12 +255,22 @@
 
             if (y + dy < ballRadius) {
                 dy = -dy;
-            } else if (y + dy > canvas.height) {
+            } else if (y + dy > canvas.height - ballRadius) {
                 if (x > paddleX && x < paddleX + paddleWidth) {
-                    dy = -dy;
+                    // 🧠 Determine hit position on paddle
+                    const hitPoint = x - (paddleX + paddleWidth / 2);
+                    const normalizedHit = hitPoint / (paddleWidth / 2); // -1 to 1
+                    dx = normalizedHit * 5; // control speed and direction
+                    dy = -Math.abs(dy); // always bounce up
                 } else {
-                    gameOverDialog.showModal();
-                    return; // Stop drawing loop
+                    lives--;
+                    if (!lives) {
+                        saveGameState();
+                        gameOverDialog.showModal();
+                        return;
+                    } else {
+                        resetBallAndPaddle();
+                    }
                 }
             }
 
@@ -242,6 +285,7 @@
             requestAnimationFrame(draw);
         }
 
+        loadGameState();
         draw();
     </script>
 </body>
